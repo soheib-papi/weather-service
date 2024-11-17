@@ -1,3 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+using Polly;
+using Polly.Extensions.Http;
+using WeatherService;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -7,6 +12,11 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<WeatherDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddHttpClient<WeatherService.WeatherService>()
+    .AddPolicyHandler(GetRetryPolicy());
+
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -21,3 +31,11 @@ app.UseHttpsRedirection();
 
 
 app.Run();
+
+
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError() // خطاهای HTTP 5xx, 408 و مشکلات شبکه
+        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(retryAttempt)); // 3 تلاش مجدد با فاصله‌های افزایشی
+}
